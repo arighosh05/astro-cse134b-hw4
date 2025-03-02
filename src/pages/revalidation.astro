@@ -1,61 +1,119 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import ContextAlert from '../components/ContextAlert.astro';
 import Markdown from '../components/Markdown.astro';
-import { cacheHeaders, randomInt } from '../utils';
 
-export const prerender = false;
-
-const tags = ['/revalidation', 'cats-related', 'all-pets-related'];
-const headers = cacheHeaders(365, tags);
-
-Object.entries(headers).map(([k, v]) => {
-    Astro.response.headers.set(k, v);
-});
-
+// Define the tutorial content explaining the A* algorithm
 const explainer = `
-This is a server-rendered page, last created at \`${new Date().toUTCString()}\` with a few extra response headers:
+# A* Algorithm Tutorial
 
-~~~js
-${JSON.stringify(headers, null, 2)}
-~~~
+The A* (A-star) algorithm is a popular and efficient pathfinding and graph traversal technique widely used in applications such as game development, robotics, and navigation systems. It finds the shortest path between a start and a goal node by intelligently combining the advantages of uniform-cost search and heuristic search.
 
-Meaning: **for browsers,** this is a non-cacheable page. At the **CDN level,** it *is* cacheable for up to a year (and Netlify also automatically busts the cache on new deployments, by default).
+## How A* Works
 
-But there's something more: the \`Cache-Tag\` header, in tandem with the [purge API](https://docs.netlify.com/platform/caching/#on-demand-invalidation), allows a developer to invalidate at will any
-pieces of content (pages, JSON responses, or whatnot) based on the tags associated with them. Tags are completely up to you to decide on, and allow for very powerful patterns.
+A* uses a cost function defined as:
 
-In real-world applications, you may want to use [stale-while-revalidate](https://docs.netlify.com/platform/caching/#stale-while-revalidate-directive) as well, so that end-users don't experience 
-a performance hit as pages are being rebuilt.
+\\[
+f(n) = g(n) + h(n)
+\\]
 
-Use the button below to invlidate a random tag out of this page's tags, then refresh the page.
-`;
+Where:
+- **g(n):** The actual cost from the start node to the current node \(n\).
+- **h(n):** A heuristic estimate of the cost from \(n\) to the goal.
+- **f(n):** The total estimated cost of the cheapest solution through \(n\).
 
-const exampleTag = tags[randomInt(0, tags.length - 1)];
+The algorithm maintains two main sets:
+- **Open Set:** Contains nodes to be evaluated (starting with the initial node).
+- **Closed Set:** Contains nodes that have already been evaluated.
+
+### Step-by-Step Process
+
+1. **Initialization:**  
+   Add the start node to the open set.
+
+2. **Iteration:**  
+   While the open set is not empty:
+   - Select the node \(n\) from the open set with the lowest \(f(n)\).
+   - If \(n\) is the goal, the shortest path has been found.
+   - Move \(n\) from the open set to the closed set.
+   - For each neighbor of \(n\):
+     - If the neighbor is in the closed set, skip it.
+     - Calculate the tentative \(g\) score (the cost from the start to the neighbor through \(n\)).
+     - If this tentative score is lower than the previously recorded \(g\) score (or if the neighbor is not in the open set):
+       - Update the neighbor’s \(g\) score.
+       - Set the neighbor’s \(f\) score as \(g(n) + h(n)\).
+       - Record \(n\) as the neighbor's predecessor.
+       - Add the neighbor to the open set if it is not already present.
+
+3. **Path Reconstruction:**  
+   Once the goal is reached, reconstruct the path by tracing back from the goal node to the start node using the recorded predecessors.
+
+## Example Pseudocode
+
+Below is an example pseudocode representation of the A* algorithm:
+
+\`\`\`js
+function aStar(start, goal) {
+  const openSet = new Set([start]);
+  const cameFrom = new Map();
+
+  const gScore = new Map();
+  gScore.set(start, 0);
+
+  const fScore = new Map();
+  fScore.set(start, heuristic(start, goal));
+
+  while (openSet.size > 0) {
+    // Get the node in openSet with the lowest fScore
+    let current = getLowestFScoreNode(openSet, fScore);
+    
+    if (current === goal) {
+      return reconstructPath(cameFrom, current);
+    }
+    
+    openSet.delete(current);
+    
+    for (let neighbor of current.neighbors) {
+      let tentativeGScore = gScore.get(current) + distance(current, neighbor);
+      
+      if (tentativeGScore < (gScore.get(neighbor) || Infinity)) {
+        cameFrom.set(neighbor, current);
+        gScore.set(neighbor, tentativeGScore);
+        fScore.set(neighbor, tentativeGScore + heuristic(neighbor, goal));
+        openSet.add(neighbor);
+      }
+    }
+  }
+  
+  return null; // No path found
+}
+\`\`\`
+
+## Heuristic Functions
+
+The choice of the heuristic \(h(n)\) is crucial for the performance of A*. To guarantee that A* finds an optimal solution, the heuristic must be **admissible**, meaning it never overestimates the true cost to reach the goal.
+
+Common heuristics include:
+- **Manhattan Distance:** Ideal for grid-based maps with horizontal and vertical movements.
+- **Euclidean Distance:** Suitable when movement is allowed in any direction.
+
+## When to Use A*
+
+A* is especially effective for:
+- **Navigation Systems:** Determining the shortest route in mapping applications.
+- **Game Development:** Guiding characters or units in virtual environments.
+- **Robotics:** Path planning and obstacle avoidance in dynamic settings.
+
+## Conclusion
+
+The A* algorithm stands out for its efficiency and accuracy in finding the shortest path by balancing actual path costs with heuristic estimations. Its versatility makes it a cornerstone in many fields where optimal navigation is key.
+
 ---
 
-<Layout title="Revalidation">
-    <h1 class="mb-10">Revalidating Server Content</h1>
-    <Markdown content={explainer} class="mb-10" />
-    <button class="revalidate-button btn btn-primary" data-tag={exampleTag}>Invalidate tag: {exampleTag}</button>
-    <button class="btn btn-primary" onclick="location.reload()">Reload page</button>
+*Tutorial created by ChatGPT.*
+`;
+
+---
+<Layout title="A* Algorithm Tutorial">
+  <h1 class="mb-10">A* Algorithm Tutorial</h1>
+  <Markdown content={explainer} class="prose" />
 </Layout>
-
-<script>
-    function revalidate(tag: string) {
-        fetch('/api/revalidate', {
-            method: 'POST',
-            body: JSON.stringify({ tags: [tag] }),
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        alert(`Invalidated tag: ${tag}`);
-    }
-
-    const revalidateButton = document.querySelectorAll('button.revalidate-button')[0];
-    revalidateButton.addEventListener('click', (e) => {
-        const tag = (e.target as HTMLButtonElement).getAttribute('data-tag');
-        revalidate(tag);
-    });
-</script>
